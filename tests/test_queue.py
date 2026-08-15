@@ -234,7 +234,12 @@ def python_files():
     # start.py added with the deploy work (DEPLOY_ARCHITECTURE.md §6.2). It was
     # missing from this list, so T19 and T20 were not actually looking at the
     # container entry point — the one file a deploy runs first.
-    for name in ("app.py", "seed_db.py", "start.py"):
+    #
+    # wsgi.py added with the PythonAnywhere path
+    # (DEPLOY_ARCHITECTURE_PYTHONANYWHERE.md). Same reasoning as start.py: it
+    # is a root-level entry point a real deploy runs, so it must be in the
+    # scanned set, not just allowlisted by name below.
+    for name in ("app.py", "seed_db.py", "start.py", "wsgi.py"):
         targets.append(os.path.join(REPO_ROOT, name))
     for folder in ("warrant", "tests"):
         directory = os.path.join(REPO_ROOT, folder)
@@ -248,7 +253,10 @@ def python_files():
 # sense as app.py and seed_db.py, added for the deploy (§6.2). It imports os,
 # sys, app and seed_db only; adding it here allowlists the local NAME, it does
 # not exempt the file, which is now scanned by python_files() above.
-LOCAL_MODULES = {"warrant", "tests", "support", "seed_db", "app", "start"}
+#
+# "wsgi" is wsgi.py at the repo root, added for the PythonAnywhere path. It
+# imports only app, warrant.db and stdlib (DEPLOY_ARCHITECTURE_PYTHONANYWHERE.md).
+LOCAL_MODULES = {"warrant", "tests", "support", "seed_db", "app", "start", "wsgi"}
 
 
 class TestT19StandardLibraryOnly(unittest.TestCase):

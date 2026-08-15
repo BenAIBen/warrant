@@ -36,6 +36,34 @@ is no cache and no precomputed score literal anywhere in this file. The /api
 routes call build_run() exactly like the HTML routes do — serving a queue or a
 detail view from the persisted scores/reasons rows would be faster and would
 break the guarantee that a dispute is visible on the very next render (§7.2).
+
+---------------------------------------------------------------------------
+THE SPLIT ADDED FOR PYTHONANYWHERE — DEPLOY_ARCHITECTURE_PYTHONANYWHERE.md
+---------------------------------------------------------------------------
+
+This module used to define one class, `Handler(BaseHTTPRequestHandler)`, that
+mixed two things together: the routing/business logic (which URL means which
+query, which form field means which write) and the socket-specific plumbing
+(reading `self.rfile`, writing `self.wfile`, calling `self.send_response()`).
+
+PythonAnywhere's free tier does not run a raw socket server — it serves a WSGI
+application through its own nginx/uwsgi stack, and `BaseHTTPRequestHandler` is
+not WSGI. Rather than write a second copy of every route to satisfy that
+(which is exactly the two-code-paths failure this whole product exists to
+prevent — see `warrant/scoring.py`'s docstring), the routing/business logic
+was pulled out into `WarrantRoutes`, a mixin with no socket dependency at all.
+`Handler` below is now `BaseHTTPRequestHandler` plus `WarrantRoutes`, and
+`wsgi.py` at the repo root is a small WSGI adapter that mixes the same
+`WarrantRoutes` into a class with WSGI-shaped plumbing instead. Every route
+method — `_queue`, `_detail`, `_api_dispute`, all of them — is defined exactly
+once, in `WarrantRoutes`, and is reached by both entry points.
+
+Nothing about local behaviour or the Render path changed: `python app.py`
+still starts the same `ThreadingHTTPServer`, on the same routes, with the same
+CORS decisions and the same bytes on the wire. This split is internal
+structure, not a behaviour change — `tests/test_api.py`'s existing suite,
+written against `app.Handler`, keeps passing unmodified against the same
+class under its new composition.
 """
 
 import json
@@ -70,6 +98,43 @@ DEPLOY_MARKER = ("warrant-api build-marker 2026-08-13 · /api + CORS + do_OPTION
 PREFLIGHT_MAX_AGE = "600"
 ALLOW_METHODS = "GET, POST, OPTIONS"
 ALLOW_HEADERS = "Content-Type"
+
+
+def cors_header_lines(origin):
+    """§4.6, factored out so app.py's socket Handler and wsgi.py's WSGI
+    adapter make byte-identical CORS decisions on every response — one
+    function deciding, two transports emitting what it decides.
+
+    `Vary: Origin` is always present. `Access-Control-Allow-Origin` is present
+    only when `origin_allowed(origin)` (§4.2) — fail closed, and an Origin
+    that is not on the allowlist gets the response without either the header
+    or an error status; the browser discards the body itself (the §1.5 trap).
+    """
+    headers = [("Vary", "Origin")]
+    if origin_allowed(origin):
+        headers.append(("Access-Control-Allow-Origin", origin))
+    return headers
+
+
+def preflight_header_lines(origin):
+    """§4.4's exact preflight response, as a header list rather than a
+    sequence of `send_header()` calls, for the same reason as
+    `cors_header_lines` above: one decision, shared by both entry points.
+
+    200 with an explicit `Content-Length: 0` — not 204 (RFC 7230 forbids
+    Content-Length on a 204, and HTTP/1.1 keep-alive needs every response
+    self-framing). `Vary: Origin` always. The four `Access-Control-*` headers
+    only when the Origin is on the allowlist; otherwise a disallowed Origin
+    gets the same 200/Content-Length:0 with none of them — not a 403 — so the
+    server never confirms or denies which origins are configured.
+    """
+    headers = [("Content-Length", "0"), ("Vary", "Origin")]
+    if origin_allowed(origin):
+        headers.append(("Access-Control-Allow-Origin", origin))
+        headers.append(("Access-Control-Allow-Methods", ALLOW_METHODS))
+        headers.append(("Access-Control-Allow-Headers", ALLOW_HEADERS))
+        headers.append(("Access-Control-Max-Age", PREFLIGHT_MAX_AGE))
+    return headers
 
 
 def _int(value, default=None):
@@ -127,142 +192,22 @@ def friction_text(conn, rep_id, account, now):
             "reason on this account on %s." % when)
 
 
-class Handler(BaseHTTPRequestHandler):
-    server_version = "Warrant/1.0"
-    protocol_version = "HTTP/1.1"
+class WarrantRoutes:
+    """Every route's business logic. No socket, no WSGI environ — nothing
+    transport-specific at all.
 
-    # -- plumbing ----------------------------------------------------------
-    def log_message(self, fmt, *args):
-        sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
-
-    def _send(self, status, html, content_type="text/html; charset=utf-8"):
-        payload = html.encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(payload)))
-        self.end_headers()
-        self.wfile.write(payload)
-
-    def _redirect(self, location):
-        self.send_response(303)
-        self.send_header("Location", location)
-        self.send_header("Content-Length", "0")
-        self.end_headers()
-
-    # -- CORS (§4) ---------------------------------------------------------
-    def _cors_headers(self):
-        """Emit the two CORS lines only when this request's Origin is on the
-        allowlist (§4.6). Absent Origin, or an Origin that is not allowed, gets
-        the response without them — the response is produced normally and the
-        browser discards it. That is the §1.5 trap, and it is why the frontend
-        has a dedicated CORS state (§9.3).
-
-        Vary: Origin is always sent. Without it an intermediary cache could
-        hand one origin's Access-Control-Allow-Origin to another.
-        """
-        origin = self.headers.get("Origin")
-        self.send_header("Vary", "Origin")
-        if not origin_allowed(origin):
-            return
-        self.send_header("Access-Control-Allow-Origin", origin)
-
-    def _send_json(self, status, payload):
-        """§3.1/§4.6. Content-Length always set — protocol_version is HTTP/1.1,
-        keep-alive is on, and every response must be self-framing."""
-        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        # §7.2 item 4: no-store, and no ETag or Last-Modified. Render sits
-        # behind a CDN edge; a cacheable /api/queue would be served from that
-        # edge and the rep would see a stale queue while the backend logs
-        # nothing at all.
-        self.send_header("Cache-Control", "no-store")
-        self._cors_headers()
-        self.end_headers()
-        self.wfile.write(body)
-
-    def _json_error(self, status, payload):
-        self._send_json(status, payload)
-
-    def do_OPTIONS(self):
-        """§4.4. 200 with Content-Length: 0 — NOT 204.
-
-        RFC 7230 forbids Content-Length on a 204, and protocol_version is
-        HTTP/1.1, so framing must be unambiguous or the connection
-        desynchronises. _redirect() already established this pattern in this
-        codebase. The CORS spec accepts any 2xx for a preflight. Do not "fix"
-        this to 204.
-
-        An Origin that is not on the allowlist gets the same 200 with no CORS
-        headers — not a 403. The browser then blocks the real request, which is
-        the correct outcome, and the server has not leaked which origins are
-        configured.
-        """
-        origin = self.headers.get("Origin")
-        self.send_response(200)
-        self.send_header("Content-Length", "0")
-        self.send_header("Vary", "Origin")
-        if origin_allowed(origin):
-            self.send_header("Access-Control-Allow-Origin", origin)
-            self.send_header("Access-Control-Allow-Methods", ALLOW_METHODS)
-            self.send_header("Access-Control-Allow-Headers", ALLOW_HEADERS)
-            self.send_header("Access-Control-Max-Age", PREFLIGHT_MAX_AGE)
-        self.end_headers()
-
-    def _form(self):
-        length = _int(self.headers.get("Content-Length"), 0)
-        raw = self.rfile.read(length).decode("utf-8") if length else ""
-        return parse_qs(raw, keep_blank_values=True)
-
-    # -- routing -----------------------------------------------------------
-    def do_GET(self):
-        parsed = urlparse(self.path)
-        parts = [p for p in parsed.path.split("/") if p]
-        params = parse_qs(parsed.query)
-        conn = connect()
-        try:
-            if parts and parts[0] == "api":
-                return self._api_get(conn, parts[1:], params)
-            if not parts:
-                return self._index(conn)
-            if parts[0] == "queue":
-                return self._queue(conn, _int(_one(params, "rep"), 1))
-            if parts[0] == "account" and len(parts) == 2:
-                return self._detail(conn, _int(parts[1]), _int(_one(params, "rep"), 1))
-            if parts[0] == "evidence" and len(parts) == 3 and parts[1] == "observations":
-                return self._observations(conn, _int(parts[2]),
-                                          _int(_one(params, "rep"), 1))
-            if parts[0] == "evidence" and len(parts) == 2:
-                return self._evidence(conn, _int(parts[1]), _int(_one(params, "rep"), 1))
-            if parts[0] == "adjustments":
-                return self._adjustments(conn, _int(_one(params, "rep"), 1))
-            if parts[0] == "metrics":
-                return self._metrics(conn)
-            if parts[0] == "ruleset":
-                return self._ruleset(conn)
-            return self._send(404, render.render_error("Not found", self.path))
-        finally:
-            conn.close()
-
-    def do_POST(self):
-        parsed = urlparse(self.path)
-        form = self._form()
-        conn = connect()
-        try:
-            if parsed.path.startswith("/api/"):
-                return self._api_post(conn, parsed.path, form)
-            if parsed.path == "/dispute":
-                return self._post_dispute(conn, form)
-            if parsed.path == "/adjust":
-                return self._post_adjust(conn, form)
-            if parsed.path == "/adjust/revert":
-                return self._post_revert(conn, form)
-            if parsed.path == "/task":
-                return self._post_task(conn, form)
-            return self._send(404, render.render_error("Not found", parsed.path))
-        finally:
-            conn.close()
+    This class depends on exactly four methods being supplied by whatever it
+    is mixed into: `self._send(status, html, content_type=...)`,
+    `self._send_json(status, payload)`, `self._redirect(location)`, and
+    `self._json_error(status, payload)` (the last is a one-line alias for
+    `_send_json` in both concrete classes, kept separate only for readability
+    at call sites). `app.py`'s `Handler` supplies socket-backed versions;
+    `wsgi.py`'s WSGI adapter supplies versions that build a status/headers/body
+    tuple for `start_response()` instead. Every method below is exactly what
+    `Handler` used to contain directly (DEPLOY_ARCHITECTURE.md §2–§3 shaped
+    all of it); nothing here was rewritten to make the split possible, only
+    moved.
+    """
 
     # -- GET handlers ------------------------------------------------------
     def _rep(self, conn, rep_id):
@@ -447,6 +392,48 @@ class Handler(BaseHTTPRequestHandler):
         types = load_signal_types(conn)
         per_type = metrics_mod.reason_dispute_rates(conn, now)
         self._send(200, render.render_ruleset(types, per_type, ruleset_version()))
+
+    # -- GET / POST dispatch -------------------------------------------------
+    # The one dispatch table for each verb, shared by app.py's Handler and
+    # wsgi.py's WSGI adapter. `path` is used only for the 404 message; `parts`
+    # / `params` / `form` are already parsed by the caller, because how they
+    # are parsed off the wire (self.path + self.rfile vs. environ +
+    # wsgi.input) is the one thing that legitimately differs by transport.
+
+    def _route_get(self, conn, path, parts, params):
+        if parts and parts[0] == "api":
+            return self._api_get(conn, parts[1:], params)
+        if not parts:
+            return self._index(conn)
+        if parts[0] == "queue":
+            return self._queue(conn, _int(_one(params, "rep"), 1))
+        if parts[0] == "account" and len(parts) == 2:
+            return self._detail(conn, _int(parts[1]), _int(_one(params, "rep"), 1))
+        if parts[0] == "evidence" and len(parts) == 3 and parts[1] == "observations":
+            return self._observations(conn, _int(parts[2]),
+                                      _int(_one(params, "rep"), 1))
+        if parts[0] == "evidence" and len(parts) == 2:
+            return self._evidence(conn, _int(parts[1]), _int(_one(params, "rep"), 1))
+        if parts[0] == "adjustments":
+            return self._adjustments(conn, _int(_one(params, "rep"), 1))
+        if parts[0] == "metrics":
+            return self._metrics(conn)
+        if parts[0] == "ruleset":
+            return self._ruleset(conn)
+        return self._send(404, render.render_error("Not found", path))
+
+    def _route_post(self, conn, path, form):
+        if path.startswith("/api/"):
+            return self._api_post(conn, path, form)
+        if path == "/dispute":
+            return self._post_dispute(conn, form)
+        if path == "/adjust":
+            return self._post_adjust(conn, form)
+        if path == "/adjust/revert":
+            return self._post_revert(conn, form)
+        if path == "/task":
+            return self._post_task(conn, form)
+        return self._send(404, render.render_error("Not found", path))
 
     # -- POST handlers -----------------------------------------------------
     def _post_dispute(self, conn, form):
@@ -864,6 +851,124 @@ class Handler(BaseHTTPRequestHandler):
         row = conn.execute("SELECT full_name FROM people WHERE person_id = ?",
                            (person_id,)).fetchone()
         return row["full_name"] if row else None
+
+
+class Handler(BaseHTTPRequestHandler, WarrantRoutes):
+    """The socket transport. Everything route-shaped lives in `WarrantRoutes`
+    above; everything here is specifically about being a
+    `BaseHTTPRequestHandler` — reading `self.rfile`, writing `self.wfile`,
+    calling `self.send_response()`. `wsgi.py`'s WSGI adapter is the other
+    transport over the same `WarrantRoutes`.
+    """
+
+    server_version = "Warrant/1.0"
+    protocol_version = "HTTP/1.1"
+
+    # -- plumbing ----------------------------------------------------------
+    def log_message(self, fmt, *args):
+        sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
+
+    def _send(self, status, html, content_type="text/html; charset=utf-8"):
+        payload = html.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def _redirect(self, location):
+        self.send_response(303)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    # -- CORS (§4) ---------------------------------------------------------
+    def _cors_headers(self):
+        """Emit the two CORS lines only when this request's Origin is on the
+        allowlist (§4.6). Absent Origin, or an Origin that is not allowed, gets
+        the response without them — the response is produced normally and the
+        browser discards it. That is the §1.5 trap, and it is why the frontend
+        has a dedicated CORS state (§9.3).
+
+        Vary: Origin is always sent. Without it an intermediary cache could
+        hand one origin's Access-Control-Allow-Origin to another.
+
+        The decision itself lives in `cors_header_lines()` above, shared with
+        wsgi.py, so this method is only the socket-specific act of emitting it.
+        """
+        for name, value in cors_header_lines(self.headers.get("Origin")):
+            self.send_header(name, value)
+
+    def _send_json(self, status, payload):
+        """§3.1/§4.6. Content-Length always set — protocol_version is HTTP/1.1,
+        keep-alive is on, and every response must be self-framing."""
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        # §7.2 item 4: no-store, and no ETag or Last-Modified. Render sits
+        # behind a CDN edge; a cacheable /api/queue would be served from that
+        # edge and the rep would see a stale queue while the backend logs
+        # nothing at all.
+        self.send_header("Cache-Control", "no-store")
+        self._cors_headers()
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _json_error(self, status, payload):
+        self._send_json(status, payload)
+
+    def do_OPTIONS(self):
+        """§4.4. 200 with Content-Length: 0 — NOT 204.
+
+        RFC 7230 forbids Content-Length on a 204, and protocol_version is
+        HTTP/1.1, so framing must be unambiguous or the connection
+        desynchronises. _redirect() already established this pattern in this
+        codebase. The CORS spec accepts any 2xx for a preflight. Do not "fix"
+        this to 204.
+
+        An Origin that is not on the allowlist gets the same 200 with no CORS
+        headers — not a 403. The browser then blocks the real request, which is
+        the correct outcome, and the server has not leaked which origins are
+        configured.
+
+        The header list is `preflight_header_lines()` above, shared with
+        wsgi.py — this method only emits it over the socket.
+        """
+        origin = self.headers.get("Origin")
+        self.send_response(200)
+        for name, value in preflight_header_lines(origin):
+            self.send_header(name, value)
+        self.end_headers()
+
+    def _form(self):
+        length = _int(self.headers.get("Content-Length"), 0)
+        raw = self.rfile.read(length).decode("utf-8") if length else ""
+        return parse_qs(raw, keep_blank_values=True)
+
+    # -- routing -------------------------------------------------------------
+    # Both methods below do nothing but parse the socket-specific request
+    # shape into (conn, path, parts/params/form) and hand off to
+    # WarrantRoutes._route_get / _route_post — the one dispatch table, shared
+    # with wsgi.py.
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        parts = [p for p in parsed.path.split("/") if p]
+        params = parse_qs(parsed.query)
+        conn = connect()
+        try:
+            return self._route_get(conn, self.path, parts, params)
+        finally:
+            conn.close()
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        form = self._form()
+        conn = connect()
+        try:
+            return self._route_post(conn, parsed.path, form)
+        finally:
+            conn.close()
 
 
 def main():
