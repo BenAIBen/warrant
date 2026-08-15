@@ -14,5 +14,5 @@
 // "not connected to a backend yet" panel instead of making a doomed request.
 
 window.WARRANT_CONFIG = {
-  apiBase: "https://<your-app>.onrender.com"   // placeholder — replace with your own
+  apiBase: "https://benaiben.pythonanywhere.com"
 };
