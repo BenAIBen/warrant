@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Warrant — reason-first prioritisation</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!--
+  DEPLOY_ARCHITECTURE.md §5.1: five files, no bundler, no npm, no transpiler,
+  no framework, no Actions workflow. config.js loads FIRST so app.js can read
+  window.WARRANT_CONFIG. Plain scripts, not modules: file:// testing of ES
+  modules fails on CORS and the user will want to open this file locally.
+-->
+
+<header id="chrome">
+  <h1>Warrant</h1>
+  <p class="meta" id="chrome-sub">Reason-first prioritisation.</p>
+  <p class="notice" id="persistence-notice" hidden></p>
+  <nav id="nav" class="meta" hidden>
+    <a href="#/">all reps</a> ·
+    <a href="#/metrics">metrics</a> ·
+    <a href="#/ruleset">how the weights are set</a>
+  </nav>
+</header>
+
+<noscript>
+  <div class="banner warn">
+    <strong>This page needs JavaScript.</strong>
+    The same product, server-rendered and working with JavaScript switched off,
+    is served by the backend itself at <code>/queue?rep=1</code> on the backend
+    URL configured in <code>docs/config.js</code> in this repository. The Pages
+    frontend is a JavaScript shell; the backend is not.
+  </div>
+</noscript>
+
+<main id="view">
+  <!-- app.js paints here. Nothing below this line is content. -->
+</main>
+
+<footer class="footer meta">
+  <span id="footer-note"></span>
+</footer>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

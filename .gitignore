@@ -1,0 +1,15 @@
+# Regenerated at container boot by start.py from a fixed seed (WARRANT_SEED).
+# Committing it would ship a stale copy of data that's meant to be generated.
+data/unify.db
+data/*.db
+
+# Compiled bytecode — never belongs in source control.
+__pycache__/
+*.pyc
+
+# The full session archive (agent transcripts). Kept local; not part of the
+# product repo. See transcripts/INDEX.md for what this contains.
+transcripts/
+
+# Local environment overrides — .env.example is the template that IS committed.
+.env

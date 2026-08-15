@@ -1,0 +1,76 @@
+/* docs/styles.css — presentation only.
+ *
+ * DEPLOY_ARCHITECTURE.md §5.1: this is a copy of the CSS constant in
+ * warrant/render.py. The duplication is knowing and it is presentation only —
+ * colours, borders, the monospace stack, chip classes. It carries no logic, no
+ * threshold, and no string a rep reads. If the two drift, the Pages site looks
+ * slightly different from the server-rendered site, which is cosmetic.
+ * Duplicating anything from reasons.py or scoring.py would not be cosmetic and
+ * is forbidden by §2.
+ */
+
+body{font:14px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+ max-width:900px;margin:0 auto;padding:24px 18px 80px;color:#101418;background:#fbfbf9}
+a{color:#14417a}
+h1,h2,h3{font-weight:600;letter-spacing:.02em}
+h1{font-size:17px;margin:0 0 2px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:#5b6570;
+ margin:30px 0 8px;border-bottom:1px solid #e2e2dd;padding-bottom:6px}
+.meta{color:#5b6570;font-size:12.5px}
+.rule{border:0;border-top:1px solid #e2e2dd;margin:14px 0}
+.chip{display:inline-block;border:1px solid #b9bfc6;border-radius:2px;padding:0 6px;
+ font-size:11.5px;letter-spacing:.06em;background:#fff}
+.chip.act{border-color:#1c6b3c;color:#12522d;background:#eaf6ef}
+.chip.rev{border-color:#8a6a12;color:#6b520c;background:#fdf6e6}
+.chip.hold{border-color:#5b6570;color:#4a525b;background:#f2f3f4}
+.chip.none{border-color:#8b8f95;color:#5b6570;background:#f7f7f5;font-style:italic}
+.chip.adj{border-color:#14417a;color:#14417a;background:#eef3fa}
+.chip.stale{border-color:#9a3412;color:#7c2d12;background:#fdf0ea}
+.row{padding:12px 0;border-top:1px solid #e2e2dd}
+.rank{display:inline-block;width:30px;color:#5b6570}
+.pts{float:right;font-variant-numeric:tabular-nums}
+.reason{padding:14px 0;border-top:1px solid #e2e2dd}
+.cat{font-size:11px;letter-spacing:.14em;color:#5b6570}
+.sentence{margin:4px 0 2px;font-size:14.5px}
+.evidence{color:#5b6570;font-size:12.5px}
+.rpts{float:right;font-variant-numeric:tabular-nums;color:#3b4148}
+.limits{background:#f4f4f0;border-left:3px solid #b9bfc6;padding:9px 12px;margin:16px 0;
+ font-size:13px}
+.banner{background:#fdf6e6;border-left:3px solid #8a6a12;padding:9px 12px;margin:12px 0;
+ font-size:13px}
+.banner.warn{background:#fdf0ea;border-left-color:#9a3412}
+.struck{text-decoration:line-through;color:#7a828b}
+form{display:inline}
+button{font:inherit;font-size:12.5px;padding:2px 9px;border:1px solid #8b8f95;
+ background:#fff;border-radius:2px;cursor:pointer}
+button:disabled{color:#9aa0a6;border-color:#d6d9dc;cursor:not-allowed}
+button.primary{border-color:#1c6b3c;color:#12522d}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid #e8e8e3}
+th{color:#5b6570;font-weight:600;font-size:11.5px;letter-spacing:.06em}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+.flagged{background:#fdf0ea}
+.footer{margin-top:44px;font-size:12px;color:#5b6570}
+
+/* --- additions for the Pages shell only. No equivalent exists in render.py
+ *     because the server-rendered app has no loading, offline or CORS state. */
+
+.notice{background:#f2f3f4;border-left:3px solid #5b6570;padding:8px 11px;
+ margin:10px 0;font-size:12.5px;color:#3b4148}
+.state{background:#fff;border:1px solid #e2e2dd;padding:16px 18px;margin:18px 0}
+.state h2{margin-top:0;border:0;padding:0}
+.state p{margin:8px 0}
+.state code{background:#f4f4f0;padding:1px 5px;border-radius:2px;
+ word-break:break-all}
+.waiting{font-style:italic;color:#5b6570}
+.confirm{background:#eaf6ef;border-left:3px solid #1c6b3c;padding:9px 12px;
+ margin:12px 0;font-size:13px}
+.error{background:#fdf0ea;border-left:3px solid #9a3412;padding:9px 12px;
+ margin:12px 0;font-size:13px}
+.bug{background:#fdf0ea;border-left:3px solid #9a3412;padding:9px 12px;
+ margin:16px 0;font-size:13px;font-weight:600}
+.actions{margin-top:7px}
+.caveat{background:#f4f4f0;border-left:3px solid #8a6a12;padding:9px 12px;
+ margin:12px 0;font-size:12.5px}
+.evrow{padding:10px 0;border-top:1px solid #e2e2dd}
+.ref{word-break:break-all}

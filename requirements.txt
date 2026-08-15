@@ -1,0 +1,25 @@
+# Warrant has no third-party dependencies.
+#
+# This file declares ZERO packages. Adding a line here would end the
+# stdlib-only property, which is enforced by
+# tests/test_queue.py::TestT19StandardLibraryOnly.
+#
+# DEPLOY_ARCHITECTURE.md §10.1 item 7 sanctions exactly this file, with exactly
+# this content: a comment and nothing else.
+#
+# CORRECTION, verified against Render's docs after §10.1 item 7 was written:
+# Render does NOT use requirements.txt to detect the language. You choose the
+# language from a dropdown when you create the service
+# (https://render.com/docs/your-first-deploy). requirements.txt is only ever
+# input to a build command that you configure yourself. So the earlier note in
+# this file — "exists only because some platforms detect the language by
+# looking for it" — was wrong about Render specifically.
+#
+# The file is kept anyway, for two honest reasons:
+#   1. Render's default Python build command is `pip install -r requirements.txt`
+#      and that command fails if the file is absent. What it does with a file
+#      containing only comments is NOT documented anywhere. Keeping the file
+#      makes the default build command succeed trivially instead of failing on
+#      a missing path. DEPLOY_RUNBOOK.md step 12 covers the fallback if it does
+#      not.
+#   2. It documents, in the repo, that the dependency count is deliberate.

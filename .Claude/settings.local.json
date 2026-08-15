@@ -1,0 +1,76 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(foreach \\($c in @\\('python','python3','py','node','npm','sqlite3','git'\\)\\) { $cmd = Get-Command $c -ErrorAction SilentlyContinue; if \\($cmd\\) { \"$c -> $\\($cmd.Source\\)\" } else { \"$c -> NOT FOUND\" } })",
+      "PowerShell($ErrorActionPreference='Continue'; & python --version; \"---node---\"; & node --version; \"---sqlite module---\"; & python -c \"import sqlite3, sys; print\\('sqlite3 ok', sqlite3.sqlite_version\\)\")",
+      "Bash(python -c \"import sqlite3,sys;print\\('python',sys.version.split\\(\\)[0],'sqlite',sqlite3.sqlite_version\\)\")",
+      "Bash(python -c \"import flask\")",
+      "Bash(python -c \"import requests\")",
+      "Bash(pip --version)",
+      "WebSearch",
+      "WebFetch(domain:www.getunify.com)",
+      "WebFetch(domain:www.unifygtm.com)",
+      "WebFetch(domain:docs.unifygtm.com)",
+      "WebFetch(domain:www.g2.com)",
+      "WebFetch(domain:help.salesforce.com)",
+      "WebFetch(domain:help.madkudu.com)",
+      "WebFetch(domain:www.commonroom.io)",
+      "WebFetch(domain:knowledge.apollo.io)",
+      "WebFetch(domain:www.pocus.com)",
+      "WebFetch(domain:www.clay.com)",
+      "WebFetch(domain:www.pedowitzgroup.com)",
+      "WebFetch(domain:www.gartner.com)",
+      "WebFetch(domain:www.cxtoday.com)",
+      "WebFetch(domain:www.businesswire.com)",
+      "WebFetch(domain:flowrunner.ai)",
+      "WebFetch(domain:www.apollo.io)",
+      "WebFetch(domain:knowledge.hubspot.com)",
+      "Bash(python -c ' *)",
+      "Bash(python seed_db.py)",
+      "Bash(python -)",
+      "Bash(python -X utf8 -)",
+      "Bash(python -X utf8 -m unittest discover tests -v)",
+      "Bash(python -X utf8 -m unittest tests.test_edge_cases.TestT17EdgeCases.test_thin_accounts_are_insufficient_and_are_not_padded tests.test_edge_cases.TestT17EdgeCases.test_zero_event_account_is_insufficient_and_still_gets_a_row)",
+      "Bash(python -X utf8 -m unittest discover -s tests -p \"test_edge_cases.py\" -v)",
+      "Bash(python -X utf8 -m unittest discover tests)",
+      "Bash(python -X utf8 -W ignore::ResourceWarning -m unittest discover tests)",
+      "Bash(python -X utf8 -c ' *)",
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(python -c \"import urllib.request;print\\('reachable:',urllib.request.urlopen\\('http://127.0.0.1:8000/'\\).status\\)\")",
+      "Bash(python -X utf8 -W ignore::ResourceWarning -m unittest discover tests -v)",
+      "Bash(exit 0)",
+      "Bash(grep -rniE \"\\(api[_-]?key|secret|password|token|bearer|sk-[a-z0-9]{10,}|AKIA[0-9A-Z]{16}\\)\\\\s*[:=]\\\\s*['\\\\\"][^'\\\\\"]{8,}\" --include=\"*.py\" --include=\"*.sql\" --include=\"*.json\" --include=\"*.example\" --include=\"*.md\" .)",
+      "Bash(mv data/unify.db data/_backup.db)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "$p = New-Object System.Media.SoundPlayer 'C:\\Windows\\Media\\Ring01.wav'; $p.PlaySync()",
+            "async": true,
+            "timeout": 30,
+            "statusMessage": "Ringing (task complete)"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "$p = New-Object System.Media.SoundPlayer 'C:\\Windows\\Media\\Alarm01.wav'; 1..3 | ForEach-Object { $p.PlaySync(); Start-Sleep -Milliseconds 200 }",
+            "async": true,
+            "timeout": 60,
+            "statusMessage": "Alarm (input needed)"
+          }
+        ]
+      }
+    ]
+  }
+}
