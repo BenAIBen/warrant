@@ -36,6 +36,46 @@
   </div>
 </noscript>
 
+<section id="intro">
+  <p>
+    This is a working demo of the scoring mechanism, not a customer list.
+    All 240 companies and 1,354 people you'll see below are synthetic —
+    generated from word pools under a fixed seed for this build. None of it
+    is a real prospect or a real company. What's real is the arithmetic:
+    every score on this page is computed live against a real database, on
+    the same code path that would run against real CRM data.
+  </p>
+  <p>
+    Most lead scores hand you a number, then a paragraph explaining it
+    after the fact — two things that can drift apart, and usually do. Here
+    the reasons aren't a description of the score, they're the score:
+    every point on the page is the output of a reason you can read, and
+    adding up the visible reasons gets you the visible total.
+  </p>
+  <div class="limits">
+    <strong>Where to start:</strong> pick a rep below, open their queue,
+    then click into any account — that's where the actual product is. The
+    account page breaks the total into individually dated, sourced
+    reasons, each with a "see evidence" link and its own point value. Try
+    the dispute button on a reason — "this is wrong" or "out of date" —
+    and watch it stay in place, struck through, with the score
+    recalculated on the next screen.
+  </div>
+  <div class="confirm">
+    Anything you file here — disputes, pins, mutes — stays until someone
+    deliberately resets the demo. This runs on a host with a real
+    persistent disk, not a container that forgets everything on restart.
+  </div>
+  <div class="caveat">
+    Honest limits: 18 of the 19 scoring weights are reasoned, not
+    measured — only product usage traces to an actual benchmark. Nothing
+    here is calibrated against closed-won outcomes, which is why it never
+    shows a probability of closing. And the reason wording has not yet
+    been read by a salesperson.
+  </div>
+  <hr class="rule">
+</section>
+
 <main id="view">
   <!-- app.js paints here. Nothing below this line is content. -->
 </main>
